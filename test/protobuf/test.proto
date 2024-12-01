@@ -1,0 +1,63 @@
+// 指定protobuf版本
+syntax = "proto3";
+
+// 指定代码所在的包（对于C++来说就是namespace）
+package test;
+
+// 定义选项，表示生成service服务和rpc方法描述
+option cc_generic_services = true;
+
+// 定义一个消息类型：登录请求
+message LoginRequest
+{
+    bytes username = 1; // 第一个字段: 1 代表第一个字段
+    bytes password = 2; // 第二个字段: 2 代表第二个字段
+}
+
+// 定义一个消息类型：登录响应
+message LoginResponse
+{
+    ResultCode code = 1;  // 第一个字段: ResultCode类型
+}
+
+message User
+{
+    string name = 2;
+    int32 age = 3;
+    enum Sex
+    {
+        MALE = 0;
+        FEMALE = 1;
+    }
+    Sex sex = 4;
+}
+
+message ResultCode
+{
+    int32 code = 1;
+    bytes message = 2;
+}
+
+message GetFriendListsRequest
+{
+    uint32 userid = 1;
+}
+
+message GetFriendListsResponse
+{
+    repeated ResultCode code = 1; // 设置字段规则可重复，相当于定义了一个数组
+    repeated User user = 2;
+}
+
+message TestMap
+{
+    map<string, int32> map1 = 1;
+    map<uint32, User> map2 = 2;
+}
+
+// 定义一个服务
+service UserServiceRpc
+{
+    rpc Login(LoginRequest) returns (LoginResponse);
+    rpc GetFriendLists(GetFriendListsRequest) returns (GetFriendListsResponse);
+}
