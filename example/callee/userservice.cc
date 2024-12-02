@@ -66,11 +66,16 @@ public:
 
 int main(int argc, char **argv)
 {
+    // 初始化mprpc框架
     MPRpcApplication::Init(argc, argv);
 
-    MprpcProvider provider;
+    // 创建服务发布者对象
+    MPRpcProvider provider;
+
+    // 将UserService对象发布到rpc框架中,供远程调用
     provider.NotifyService(new UserService());
 
+    // 启动rpc服务发布者
     provider.Run();
 
     return 0;

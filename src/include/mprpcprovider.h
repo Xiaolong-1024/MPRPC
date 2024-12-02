@@ -11,7 +11,7 @@
 #include <unordered_map>
 
 // MPRPC框架服务发布类，专门用于发布rpc服务
-class MprpcProvider
+class MPRpcProvider
 {
 public:
     // 用于发布rpc方法的接口
