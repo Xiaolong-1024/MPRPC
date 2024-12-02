@@ -124,6 +124,10 @@ std::string MPRpcConfigure::GetConfigure(const std::string& key)
         // 获取配置项内容
         value = m_configMap.at(key);
     }
+    else
+    {
+        std::cout << "If the configuration item is not found, MPRpcApplication::Init() may not be called" << std::endl;
+    }
 
     return value;
 }
@@ -142,24 +146,24 @@ bool MPRpcConfigure::CheckConfigure()
     }
 
     // 检测配置项是否存在
-    if (m_configMap.find("rpcserver") == m_configMap.end())
+    if (m_configMap.find("rpcserverip") == m_configMap.end())
     {
-        std::cout << "rpcserver configure not found in file" << std::endl;
+        std::cout << "rpcserverip configuration item is not found in file" << std::endl;
         return false;
     }
-    if (m_configMap.find("rpcport") == m_configMap.end())
+    if (m_configMap.find("rpcserverport") == m_configMap.end())
     {
-        std::cout << "rpcport configure not found in file" << std::endl;
+        std::cout << "rpcserverport configuration item is not found in file" << std::endl;
         return false;
     }
-    if (m_configMap.find("zkserver") == m_configMap.end())
+    if (m_configMap.find("zkserverip") == m_configMap.end())
     {
-        std::cout << "zkserver configure not found in file" << std::endl;
+        std::cout << "zkserverip configuration item is not found in file" << std::endl;
         return false;
     }
-    if (m_configMap.find("zkport") == m_configMap.end())
+    if (m_configMap.find("zkserverport") == m_configMap.end())
     {
-        std::cout << "zkport configure not found in file" << std::endl;
+        std::cout << "zkserverport configuration item is not found in file" << std::endl;
         return false;
     }
 

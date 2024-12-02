@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package mprpc;
+
+// rpc请求消息头
+// 用于服务提供者(callee) 和 服务消费者(caller) 之间网络通信使用
+message RpcHeader
+{
+    bytes service_name = 1; // rpc服务名称
+    bytes method_name = 2;  // rpc方法名称
+    uint32 args_size = 3;   // 参数长度 (rpc请求消息类型序列化后的长度)
+}
