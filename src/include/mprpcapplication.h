@@ -5,6 +5,13 @@
 #ifndef MPRPCAPPLICATION_H
 #define MPRPCAPPLICATION_H
 
+#include "mprpcchannel.h"
+#include "mprpccontroller.h"
+#include "mprpcprovider.h"
+#include "mprpcconfigure.h"
+#include "mprpclogger.h"
+#include "mprpclockqueue.h"
+
 // MPRPC框架基础类，负责框架初始化操作
 class MPRpcApplication
 {

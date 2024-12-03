@@ -3,7 +3,6 @@
 //
 
 #include "mprpcapplication.h"
-#include "mprpcconfigure.h"
 #include <iostream>
 #include <unistd.h>
 

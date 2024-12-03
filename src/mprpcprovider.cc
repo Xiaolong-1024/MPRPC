@@ -3,6 +3,7 @@
 //
 
 #include "mprpcprovider.h"
+#include "mprpclogger.h"
 #include "mprpcconfigure.h"
 #include "rpcheader.pb.h"
 #include <muduo/net/TcpServer.h>
@@ -48,7 +49,7 @@ void MPRpcProvider::Run(const uint32_t threadNum)
     }
     catch (const std::invalid_argument& e)
     {
-        std::cout << "MPRpcProvider::Run() error: " << e.what() << std::endl;
+        LOG_ERROR("MPRpcProvider::Run() error: %s", e.what());
         return;
     }
 
@@ -66,8 +67,7 @@ void MPRpcProvider::Run(const uint32_t threadNum)
 
     // 开启服务
     server.start();
-    std::cout << "MPRpcProvider server at in " << ip << ":" << port << std::endl;
-    std::cout << "MPRpcProvider server is running..." << std::endl;
+    LOG_INFO("MPRpcProvider server at in %s:%d", ip.c_str(), port);
 
     // 启动事件循环
     m_eventLoop.loop();
@@ -128,23 +128,14 @@ void MPRpcProvider::OnMessage(const muduo::net::TcpConnectionPtr& conn, muduo::n
     else
     {
         // 数据头反序列化失败
-        std::cout << "MPRpcProvider::OnMessage() error: parse rpc header failed" << std::endl;
+        LOG_ERROR("MPRpcProvider::OnMessage() error: parse rpc header failed");
         return;
     }
-
-    std::cout << "==========================================" << std::endl;
-    std::cout << "service_name: " << service_name << std::endl;
-    std::cout << "method_name: " << method_name << std::endl;
-    std::cout << "recv_str: " << recv_str << std::endl;
-    std::cout << "rpc_header_str: " << rpc_header_str << std::endl;
-    std::cout << "header_size: " << header_size << std::endl;
-    std::cout << "args_size: " << args_size << std::endl;
-    std::cout << "==========================================" << std::endl;
 
     // 根据服务名称获取服务信息对象
     if (!m_serviceMap.contains(service_name))
     {
-        std::cout << "MPRpcProvider::OnMessage() error: service " << service_name << " not found" << std::endl;
+        LOG_ERROR("MPRpcProvider::OnMessage() error: service %s not found", service_name.c_str());
         return;
     }
     const RpcServerInfo server_info =  m_serviceMap.at(service_name);
@@ -152,7 +143,7 @@ void MPRpcProvider::OnMessage(const muduo::net::TcpConnectionPtr& conn, muduo::n
     // 根据方法名称获取方法对象
     if (!server_info.methodMap.contains(method_name))
     {
-        std::cout << "MPRpcProvider::OnMessage() error: method " << method_name << " not found" << std::endl;
+        LOG_ERROR("MPRpcProvider::OnMessage() error: method %s not found", method_name.c_str());
         return;
     }
     const google::protobuf::MethodDescriptor* pMethodDesc = server_info.methodMap.at(method_name);
@@ -167,7 +158,7 @@ void MPRpcProvider::OnMessage(const muduo::net::TcpConnectionPtr& conn, muduo::n
     // 数据体原始数据反序列化为为rpc请求消息类型
     if (!pRequest->ParseFromString(rpc_args_str))
     {
-        std::cout << "MPRpcProvider::OnMessage() error: parse rpc args failed" << std::endl;
+        LOG_ERROR("MPRpcProvider::OnMessage() error: parse rpc args failed");
         return;
     }
 
@@ -193,7 +184,7 @@ void MPRpcProvider::OnDone(const muduo::net::TcpConnectionPtr& conn, google::pro
     std::string response_str;
     if (!pResponse->SerializeToString(&response_str))
     {
-        std::cout << "MprpcProvider::OnDone() error: serialize response failed" << std::endl;
+        LOG_ERROR("MprpcProvider::OnDone() error: serialize response failed");
         conn->shutdown();
         return;
     }

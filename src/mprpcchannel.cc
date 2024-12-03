@@ -4,6 +4,7 @@
 
 #include "mprpcchannel.h"
 #include "mprpcconfigure.h"
+#include "mprpclogger.h"
 #include "rpcheader.pb.h"
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/message.h>
@@ -33,6 +34,13 @@ void MPRpcChannel::CallMethod(const google::protobuf::MethodDescriptor* method,
                               google::protobuf::RpcController* controller, const google::protobuf::Message* request,
                               google::protobuf::Message* response, google::protobuf::Closure* done)
 {
+    // 检测参数合法性
+    if (method == nullptr || controller == nullptr || request == nullptr || response == nullptr)
+    {
+        LOG_ERROR("MPRpcChannel::CallMethod() parameter is nullptr");
+        return;
+    }
+
     // 获取rpc服务描述指针
     const google::protobuf::ServiceDescriptor* pServiceDesc = method->service();
 
@@ -46,7 +54,7 @@ void MPRpcChannel::CallMethod(const google::protobuf::MethodDescriptor* method,
     std::string args_str;
     if (!request->SerializeToString(&args_str))
     {
-        std::cout << "MPRpcChannel::CallMethod() serialize request failed" << std::endl;
+        controller->SetFailed("serialize request failed");
         return;
     }
     uint32_t args_size = args_str.size(); // 获取rpc方法请求参数的序列化长度
@@ -61,7 +69,7 @@ void MPRpcChannel::CallMethod(const google::protobuf::MethodDescriptor* method,
     std::string rpc_header_str;
     if (!rpc_header.SerializeToString(&rpc_header_str))
     {
-        std::cout << "MPRpcChannel::CallMethod() serialize rpc_header failed" << std::endl;
+        controller->SetFailed("serialize rpc header failed");
         return;
     }
     uint32_t rpc_header_size = rpc_header_str.size(); // 获取rpc数据头序列化长度
@@ -72,17 +80,6 @@ void MPRpcChannel::CallMethod(const google::protobuf::MethodDescriptor* method,
     rpc_package.append(rpc_header_str); // rpc数据头
     rpc_package.append(args_str); // rpc参数
 
-    // 打印调试信息
-    std::cout << "==========================================" << std::endl;
-    std::cout << "service_name: " << serviceName << std::endl;
-    std::cout << "method_name: " << methodName << std::endl;
-    std::cout << "rpc_header_size: " << rpc_header_size << std::endl;
-    std::cout << "args_size: " << args_size << std::endl;
-    std::cout << "rpc_header_str: " << rpc_header_str << std::endl;
-    std::cout << "args_str: " << args_str << std::endl;
-    std::cout << "rpc_package: " << rpc_package << std::endl;
-    std::cout << "==========================================" << std::endl;
-
     // 从配置文件对象获取相关配置项
     std::string ip; uint16_t port;
     try
@@ -92,7 +89,7 @@ void MPRpcChannel::CallMethod(const google::protobuf::MethodDescriptor* method,
     }
     catch (const std::invalid_argument& e)
     {
-        std::cout << "MPRpcProvider::Run() error: " << e.what() << std::endl;
+        controller->SetFailed("configuration item invalid_argument: " + std::string(e.what()));
         return;
     }
 
@@ -100,7 +97,7 @@ void MPRpcChannel::CallMethod(const google::protobuf::MethodDescriptor* method,
     int cfd = socket(AF_INET, SOCK_STREAM, 0);
     if (-1 == cfd)
     {
-        std::cout << "MPRpcChannel::CallMethod() create socket failed: " << errno << std::endl;
+        controller->SetFailed("create rpc client socket failed, " + std::string(strerror(errno)));
         return;
     }
 
@@ -111,7 +108,7 @@ void MPRpcChannel::CallMethod(const google::protobuf::MethodDescriptor* method,
     server_addr.sin_addr.s_addr = inet_addr(ip.c_str());
     if (-1 == connect(cfd, reinterpret_cast<struct sockaddr*>(&server_addr), sizeof(server_addr)))
     {
-        std::cout << "MPRpcChannel::CallMethod() connect failed: " << errno << std::endl;
+        controller->SetFailed("connect rpc server failed, " + std::string(strerror(errno)));
         close(cfd);
         return;
     }
@@ -119,30 +116,50 @@ void MPRpcChannel::CallMethod(const google::protobuf::MethodDescriptor* method,
     // 发送rpc请求字符串
     if (-1 == send(cfd, rpc_package.c_str(), rpc_package.size(), 0))
     {
-        std::cout << "MPRpcChannel::CallMethod() write failed: " << errno << std::endl;
+        controller->SetFailed("send rpc request failed, " + std::string(strerror(errno)));
         close(cfd);
         return;
     }
 
     // 等待接收rpc响应字符串
-    char buffer[1024] = {0};
-    ssize_t recv_size = recv(cfd, buffer, sizeof(buffer), 0);
-    if (-1 == recv_size)
+    std::string buffer;
+    char temp[1024] = {0};
+    ssize_t recv_size = 0;
+    while (true)
     {
-        std::cout << "MPRpcChannel::CallMethod() read failed: " << errno << std::endl;
-        close(cfd);
-        return;
+        // 从cfd中接收数据，将数据存储到temp中
+        ssize_t n = recv(cfd, temp, sizeof(temp), 0);
+        // 如果返回值为-1，表示接收失败
+        if (-1 == n)
+        {
+            controller->SetFailed("recv rpc response failed, " + std::string(strerror(errno)));
+            close(cfd);
+            return;
+        }
+        // 如果返回值为0，表示连接已关闭
+        if (n == 0)
+        {
+            break;
+        }
+        buffer.append(temp, n); // 将接收到的数据添加到buffer中
+        recv_size += n; // 更新接收到的字节数
+        memset(temp, 0, sizeof(temp)); // 清空temp
     }
 
     // 进行rpc响应反序列化
-    std::string response_str(buffer, recv_size);
-    if (!response->ParseFromString(response_str))
+    if (!response->ParseFromString(buffer))
     {
-        std::cout << "MPRpcChannel::CallMethod() parsing response failed" << std::endl;
+        controller->SetFailed("rpc response parse failed");
         close(cfd);
         return;
     }
 
     // 关闭连接
     close(cfd);
+
+    // 调用执行完成回调函数
+    if (done != nullptr)
+    {
+        done->Run();
+    }
 }

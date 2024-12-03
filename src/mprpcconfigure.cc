@@ -3,6 +3,7 @@
 //
 
 #include "mprpcconfigure.h"
+#include "mprpclogger.h"
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -29,14 +30,14 @@ bool MPRpcConfigure::LoadConfigure(const std::string& path)
     // 检测路径是否存在
     if (!std::filesystem::exists(path))
     {
-        std::cout << "Path does not exist: " << path << std::endl;
+        LOG_ERROR("The configuration file path does not exist: %s", path.c_str());
         return false;
     }
 
     // 判断路径是否为文件
     if (!std::filesystem::is_regular_file(path))
     {
-        std::cout << "Path is not a file: " << path << std::endl;
+        LOG_ERROR("The configuration file path is not a file: %s", path.c_str());
         return false;
     }
 
@@ -44,7 +45,7 @@ bool MPRpcConfigure::LoadConfigure(const std::string& path)
     std::ifstream ifs(path);
     if (!ifs.is_open())
     {
-        std::cout << "Failed to open configure file: " << path << std::endl;
+        LOG_ERROR("Failed to open configure file: %s", path.c_str());
         return false;
     }
 
@@ -88,7 +89,7 @@ bool MPRpcConfigure::LoadConfigure(const std::string& path)
             // 判断配置项是否合法
             if (tokens.size() != 2)
             {
-                std::cout << "Invalid configure line: " << line << std::endl;
+                LOG_ERROR("Invalid configure line: %s", line.c_str());
                 continue;
             }
 
@@ -126,7 +127,7 @@ std::string MPRpcConfigure::GetConfigure(const std::string& key)
     }
     else
     {
-        std::cout << "If the configuration item is not found, MPRpcApplication::Init() may not be called" << std::endl;
+        LOG_ERROR("If the configuration item is not found, MPRpcApplication::Init() may not be called");
     }
 
     return value;
@@ -141,35 +142,35 @@ bool MPRpcConfigure::CheckConfigure()
     // 检测配置项是否为空
     if (m_configMap.empty())
     {
-        std::cout << "No configure found in file" << std::endl;
+        LOG_ERROR("No configuration item in file");
         return false;
     }
 
     // 检测配置项是否存在
     if (m_configMap.find("rpcserverip") == m_configMap.end())
     {
-        std::cout << "rpcserverip configuration item is not found in file" << std::endl;
+        LOG_ERROR("\"rpcserverip\" configuration item is not found in file");
         return false;
     }
     if (m_configMap.find("rpcserverport") == m_configMap.end())
     {
-        std::cout << "rpcserverport configuration item is not found in file" << std::endl;
+        LOG_ERROR("\"rpcserverport\" configuration item is not found in file");
         return false;
     }
     if (m_configMap.find("zkserverip") == m_configMap.end())
     {
-        std::cout << "zkserverip configuration item is not found in file" << std::endl;
+        LOG_ERROR("\"zkserverip\" configuration item is not found in file");
         return false;
     }
     if (m_configMap.find("zkserverport") == m_configMap.end())
     {
-        std::cout << "zkserverport configuration item is not found in file" << std::endl;
+        LOG_ERROR("\"zkserverport\" configuration item is not found in file");
         return false;
     }
 
     for (auto& [key, value] : m_configMap)
     {
-        std::cout << key << " = " << value << std::endl;
+        LOG_INFO("%s = %s", key.c_str(), value.c_str());
     }
 
     return true;
