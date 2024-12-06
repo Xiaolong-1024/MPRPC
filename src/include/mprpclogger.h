@@ -42,6 +42,7 @@ enum LogLevel
     ERROR = 2 // 错误信息
 };
 
+// 日志类
 class MPRpcLogger
 {
 private:

@@ -5,7 +5,8 @@
 #include "mprpcprovider.h"
 #include "mprpclogger.h"
 #include "mprpcconfigure.h"
-#include "rpcheader.pb.h"
+#include "mprpczkclient.h"
+#include "mprpcheader.pb.h"
 #include <muduo/net/TcpServer.h>
 #include <muduo/net/InetAddress.h>
 
@@ -65,6 +66,27 @@ void MPRpcProvider::Run(const uint32_t threadNum)
     // 设置线程数量
     server.setThreadNum(threadNum);
 
+    // 把当前rpc服务注册到zookeeper节点中
+    for (auto&[key, value] : m_serviceMap)
+    {
+        // 服务节点路径
+        std::string service_path = "/" + key; // /服务名称
+        // 创建服务节点
+        MPRpcZKClient::GetInstance().Create(service_path, "", 0); // 0: 持久节点
+        LOG_INFO("MPRpcProvider register service: %s", service_path.c_str());
+        // 遍历服务中的所有rpc方法
+        for (auto&[method_name, method_desc] : value.methodMap)
+        {
+            // 方法节点路径
+            std::string method_path = service_path + "/" + method_name; // /服务名称/方法名称
+            // 方法节点数据
+            std::string method_data = ip + ":" + std::to_string(port); // ip:port
+            // 创建方法节点
+            MPRpcZKClient::GetInstance().Create(method_path, method_data, ZOO_EPHEMERAL); // ZOO_EPHEMERAL: 临时节点
+            LOG_INFO("MPRpcProvider register method: %s", method_path.c_str());
+        }
+    }
+
     // 开启服务
     server.start();
     LOG_INFO("MPRpcProvider server at in %s:%d", ip.c_str(), port);
@@ -114,7 +136,7 @@ void MPRpcProvider::OnMessage(const muduo::net::TcpConnectionPtr& conn, muduo::n
     std::string rpc_header_str = recv_str.substr(4, header_size); // 从字符串中读取第5个字节开始，长度为header_size的字符串
 
     // 数据头原始数据反序列化为为数据头对象
-    mprpc::RpcHeader rpc_header;
+    mprpc::MPRpcHeader rpc_header;
     std::string service_name; // rpc服务名称
     std::string method_name;  // rpc方法名称
     uint32_t args_size;   // 参数长度 (rpc请求消息类型序列化后的长度)

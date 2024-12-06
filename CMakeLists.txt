@@ -11,7 +11,6 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 # 设置头文件搜索路径
 include_directories(${PROJECT_SOURCE_DIR}/src/include)
-include_directories(${PROJECT_SOURCE_DIR}/src/protobuf)
 include_directories(${PROJECT_SOURCE_DIR}/example)
 
 # 设置库文件搜索路径

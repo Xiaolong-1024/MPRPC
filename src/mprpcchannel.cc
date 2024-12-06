@@ -5,13 +5,15 @@
 #include "mprpcchannel.h"
 #include "mprpcconfigure.h"
 #include "mprpclogger.h"
-#include "rpcheader.pb.h"
+#include "mprpcheader.pb.h"
+#include "mprpczkclient.h"
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/message.h>
 #include <iostream>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <errno.h>
+#include <sstream>
 #include <unistd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -60,7 +62,7 @@ void MPRpcChannel::CallMethod(const google::protobuf::MethodDescriptor* method,
     uint32_t args_size = args_str.size(); // 获取rpc方法请求参数的序列化长度
 
     // 定义rpc数据头对象
-    mprpc::RpcHeader rpc_header;
+    mprpc::MPRpcHeader rpc_header;
     rpc_header.set_service_name(serviceName); // 设置rpc服务名称
     rpc_header.set_method_name(methodName); // 设置rpc方法名称
     rpc_header.set_args_size(args_size); // 设置rpc方法参数长度
@@ -80,16 +82,34 @@ void MPRpcChannel::CallMethod(const google::protobuf::MethodDescriptor* method,
     rpc_package.append(rpc_header_str); // rpc数据头
     rpc_package.append(args_str); // rpc参数
 
-    // 从配置文件对象获取相关配置项
+    // 从zookeeper配置中心获取要调用rpc服务的ip和端口
+    std::string method_path = "/" + serviceName + "/" + methodName;
+    std::string node_data = MPRpcZKClient::GetInstance().GetData(method_path); // ip:port
     std::string ip; uint16_t port;
-    try
+    if (!node_data.empty())
     {
-        ip = MPRpcConfigure::GetInstance().GetConfigure("rpcserverip");
-        port = stoi(MPRpcConfigure::GetInstance().GetConfigure("rpcserverport"));
+        // 解析节点数据
+        std::istringstream iss(node_data);
+        std::string token;
+        std::vector<std::string> tokens;
+        while (std::getline(iss, token, ':'))
+        {
+            tokens.push_back(token);
+        }
+        if (tokens.size() == 2)
+        {
+            ip = tokens[0];
+            port = static_cast<uint16_t>(std::stoi(tokens[1]));
+        }
+        else
+        {
+            controller->SetFailed("parse rpc service info failed, node_data: " + node_data);
+            return;
+        }
     }
-    catch (const std::invalid_argument& e)
+    else
     {
-        controller->SetFailed("configuration item invalid_argument: " + std::string(e.what()));
+        controller->SetFailed("get rpc service info failed, node_data is empty");
         return;
     }
 
